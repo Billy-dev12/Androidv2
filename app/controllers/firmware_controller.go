@@ -94,61 +94,57 @@ func (c *FirmwareController) ExtractOuterArchive(filePath, outputDir string) {
 	}
 }
 
-// ExtractSamsungInner handles selective component extraction for Samsung firmware from a ZIP archive.
+// ExtractSamsungInner handles selective component extraction for Samsung firmware from a folder containing .tar.md5 files.
 func (c *FirmwareController) ExtractSamsungInner() {
-	zipPath := c.view.PromptInput("Masukkan Path File Samsung ZIP (.zip): ")
-	if zipPath == "" {
-		c.view.RenderError(fmt.Errorf("ZIP file path cannot be empty"))
+	folderPath := c.view.PromptInput("Masukkan Path Folder berisi file Samsung (.tar.md5): ")
+	if folderPath == "" {
+		c.view.RenderError(fmt.Errorf("folder path cannot be empty"))
 		return
 	}
 
-	// Check if file exists
-	info, err := os.Stat(zipPath)
-	if os.IsNotExist(err) || info.IsDir() {
-		c.view.RenderError(fmt.Errorf("file does not exist or is a directory: %s", zipPath))
+	// Check if directory exists
+	info, err := os.Stat(folderPath)
+	if os.IsNotExist(err) || !info.IsDir() {
+		c.view.RenderError(fmt.Errorf("directory does not exist or is not a folder: %s", folderPath))
 		return
 	}
 
-	// Find Samsung components in ZIP
-	samsungFiles, err := c.model.FindSamsungComponentsInZip(zipPath)
-	if err != nil {
-		c.view.RenderError(err)
-		return
-	}
+	// Find Samsung files
+	samsungFiles := c.model.FindSamsungFiles(folderPath)
 	if len(samsungFiles) == 0 {
-		c.view.RenderError(fmt.Errorf("no Samsung firmware components (AP, BL, CP, CSC, HOME_CSC) found in ZIP file"))
+		c.view.RenderError(fmt.Errorf("no Samsung firmware files (AP, BL, CP, CSC, HOME_CSC) found in folder: %s", folderPath))
 		return
 	}
 
-	// Print detected files in ZIP
-	fmt.Printf("\n\033[36m=== DETECTED SAMSUNG COMPONENTS IN ZIP ===\033[0m\n")
-	for key, name := range samsungFiles {
-		fmt.Printf("  - %s: %s\n", key, filepath.Base(name))
+	// Print detected files
+	fmt.Printf("\n\033[36m=== DETECTED SAMSUNG COMPONENTS ===\033[0m\n")
+	for key, path := range samsungFiles {
+		fmt.Printf("  - %s: %s\n", key, filepath.Base(path))
 	}
 	fmt.Println()
 
 	// Ask for selection
 	choice := c.view.PromptInput("Pilih file yang ingin diekstrak (pisah koma, misal: AP,BL) atau tekan Enter untuk semua (Auto): ")
-	selectedFiles := make(map[string]string)
+	selectedKeys := []string{}
 	if strings.TrimSpace(choice) == "" {
 		// Auto mode: select all detected files
-		for key, name := range samsungFiles {
-			selectedFiles[key] = name
+		for key := range samsungFiles {
+			selectedKeys = append(selectedKeys, key)
 		}
 	} else {
 		// Manual mode: parse choices
 		parts := strings.Split(choice, ",")
 		for _, part := range parts {
 			key := strings.TrimSpace(strings.ToUpper(part))
-			if name, exists := samsungFiles[key]; exists {
-				selectedFiles[key] = name
+			if _, exists := samsungFiles[key]; exists {
+				selectedKeys = append(selectedKeys, key)
 			} else {
 				fmt.Printf("\033[33mWarning: Component '%s' not found or invalid. Skipping.\033[0m\n", key)
 			}
 		}
 	}
 
-	if len(selectedFiles) == 0 {
+	if len(selectedKeys) == 0 {
 		c.view.RenderError(fmt.Errorf("no valid components selected for extraction"))
 		return
 	}
@@ -156,7 +152,7 @@ func (c *FirmwareController) ExtractSamsungInner() {
 	// Ask for output directory
 	outputDir := c.view.PromptInput("Masukkan Folder Output (kosongkan untuk default): ")
 	if outputDir == "" {
-		outputDir = filepath.Join(filepath.Dir(zipPath), "extracted_samsung")
+		outputDir = filepath.Join(folderPath, "extracted_samsung")
 	}
 
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
@@ -171,12 +167,21 @@ func (c *FirmwareController) ExtractSamsungInner() {
 		fmt.Printf("\r\033[KExtracting: %s", fileName)
 	}
 
-	fmt.Printf("\nExtracting selected components to %s...\n", outputDir)
-	err = c.model.ExtractSpecificFilesFromZip(zipPath, selectedFiles, outputDir, onProgress)
-	if err != nil {
-		c.view.RenderError(err)
-		return
+	// Extract selected files
+	for _, key := range selectedKeys {
+		filePath := samsungFiles[key]
+		// Create specific sub-folder for this component (e.g. outputDir/AP)
+		compOutputDir := filepath.Join(outputDir, key)
+		fmt.Printf("\nExtracting %s component (%s) to %s...\n", key, filepath.Base(filePath), compOutputDir)
+		
+		err := c.model.ExtractTarRaw(filePath, compOutputDir, onProgress)
+		fmt.Println() // Clear progress line
+		if err != nil {
+			fmt.Printf("\033[31mError extracting %s: %v\033[0m\n", key, err)
+		} else {
+			fmt.Printf("Finished processing %s component.\n", key)
+		}
 	}
 
-	c.view.RenderSuccess(fmt.Sprintf("Samsung firmware components successfully extracted to: %s", outputDir))
+	c.view.RenderSuccess(fmt.Sprintf("Samsung firmware extraction completed in: %s", outputDir))
 }
