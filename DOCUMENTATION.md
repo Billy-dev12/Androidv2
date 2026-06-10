@@ -21,11 +21,11 @@
 - **Mengapa:** Memperkuat keamanan repositori Git dari berkas besar yang sensitif, serta memberikan kontrol ekstraksi spesifik pada firmware Samsung yang unik dan berukuran besar.
 - **Status:** ✅ Selesai
 
-### 2026-06-10 — Refaktor Samsung Inner Extractor (Ekstraksi Tar.md5 ke Folder Komponen)
+### 2026-06-10 — Refaktor Samsung Inner Extractor (Dekompresi LZ4 Otomatis ke Satu Folder)
 - **File yang diubah:** `app/controllers/firmware_controller.go`
 - **Apa yang dilakukan:** 
   1. Mengembalikan target input `Samsung Firmware Extractor (Inner)` ke folder lokal yang berisi file `.tar.md5` hasil ekstraksi luar.
-  2. Mengekstrak konten dari berkas `.tar.md5` terpilih (AP, BL, CP, CSC, HOME_CSC) ke sub-folder terpisah masing-masing komponen (misal: `<outputDir>/AP`).
-  3. **Penting:** Tidak melakukan dekompresi otomatis berkas `.lz4` ke `.img` (dibiarkan tetap berformat `.lz4` / format bawaan di dalam tar).
-- **Mengapa:** Menyediakan ekstraksi yang terorganisir per komponen dari folder ekstraksi luar dengan mempertahankan format berkas asli tanpa dipaksa menjadi `.img` mentah.
+  2. Mengekstrak seluruh konten dari berkas `.tar.md5` terpilih (AP, BL, CP, CSC, HOME_CSC) langsung ke satu folder output utama yang sama (flat structure).
+  3. Mengotomatisasikan dekompresi seluruh berkas `.lz4` di dalam folder output menjadi berkas citra partisi mentah (`.img` / `.bin`) via utilitas `lz4` dan menghapus berkas `.lz4` aslinya.
+- **Mengapa:** Menyediakan hasil akhir berupa satu folder bersih yang terisi struktur berkas OS mentah transparan yang siap pakai dan mudah dipahami pengguna tanpa kerumitan sub-folder komponen ataupun format kompresi `.lz4`.
 - **Status:** ✅ Selesai

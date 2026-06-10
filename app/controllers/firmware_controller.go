@@ -167,20 +167,30 @@ func (c *FirmwareController) ExtractSamsungInner() {
 		fmt.Printf("\r\033[KExtracting: %s", fileName)
 	}
 
+	onLz4Progress := func(fileName string) {
+		fmt.Printf("\r\033[KDecompressing LZ4: %s", fileName)
+	}
+
 	// Extract selected files
 	for _, key := range selectedKeys {
 		filePath := samsungFiles[key]
-		// Create specific sub-folder for this component (e.g. outputDir/AP)
-		compOutputDir := filepath.Join(outputDir, key)
-		fmt.Printf("\nExtracting %s component (%s) to %s...\n", key, filepath.Base(filePath), compOutputDir)
+		fmt.Printf("\nExtracting %s component (%s)...\n", key, filepath.Base(filePath))
 		
-		err := c.model.ExtractTarRaw(filePath, compOutputDir, onProgress)
+		err := c.model.ExtractTarRaw(filePath, outputDir, onProgress)
 		fmt.Println() // Clear progress line
 		if err != nil {
 			fmt.Printf("\033[31mError extracting %s: %v\033[0m\n", key, err)
 		} else {
-			fmt.Printf("Finished processing %s component.\n", key)
+			fmt.Printf("Finished extracting %s component.\n", key)
 		}
+	}
+
+	// Run LZ4 decompression for files inside the output folder
+	fmt.Println("\nDecompressing internal LZ4 files...")
+	if err := c.model.DecompressFolderLZ4(outputDir, onLz4Progress); err != nil {
+		fmt.Printf("\033[31mError during LZ4 decompression: %v\033[0m\n", err)
+	} else {
+		fmt.Printf("\r\033[KFinished decompressing LZ4 files.\n")
 	}
 
 	c.view.RenderSuccess(fmt.Sprintf("Samsung firmware extraction completed in: %s", outputDir))
