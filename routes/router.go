@@ -154,7 +154,7 @@ func (r *Router) enterInteractiveMode() {
 	}
 
 	firmwareOptions := []string{
-		"Xiaomi",
+		"Extract Outer Archive (.zip, .tgz, .tar.gz, .tar, .tar.md5)",
 		"Back to Main Menu",
 	}
 
@@ -328,16 +328,16 @@ func (r *Router) executeADBAction(index int, currentMenu *string) {
 	r.view.SetRawMode(true)
 }
 
-// executeFirmwareAction runs the selected firmware extractor brand action.
+// executeFirmwareAction runs the selected firmware extractor action.
 func (r *Router) executeFirmwareAction(index int, currentMenu *string) {
 	r.view.SetRawMode(false)
 	fmt.Println()
 
 	switch index {
-	case 0: // Xiaomi
-		filePath := r.view.PromptInput("Masukkan Path File Firmware (.zip/.tgz/.tar.gz/.tar): ")
+	case 0: // Outer Extractor
+		filePath := r.view.PromptInput("Masukkan Path File Firmware (.zip/.tgz/.tar.gz/.tar/.tar.md5): ")
 		outputDir := r.view.PromptInput("Masukkan Folder Output (kosongkan untuk default): ")
-		r.firmwareController.ExtractXiaomi(filePath, outputDir)
+		r.firmwareController.ExtractOuterArchive(filePath, outputDir)
 	case 1: // Back
 		*currentMenu = "main"
 		r.view.SetRawMode(true)

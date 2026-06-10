@@ -24,8 +24,8 @@ func NewFirmwareController(model *models.FirmwareExtractor, view *views.ConsoleV
 	}
 }
 
-// ExtractXiaomi handles validation and triggers extraction for Xiaomi firmware.
-func (c *FirmwareController) ExtractXiaomi(filePath, outputDir string) {
+// ExtractOuterArchive handles validation, triggers extraction, and detects the inner firmware type.
+func (c *FirmwareController) ExtractOuterArchive(filePath, outputDir string) {
 	if filePath == "" {
 		c.view.RenderError(fmt.Errorf("file path cannot be empty"))
 		return
@@ -37,7 +37,9 @@ func (c *FirmwareController) ExtractXiaomi(filePath, outputDir string) {
 		base := filepath.Base(filePath)
 		ext := filepath.Ext(filePath)
 		var folderName string
-		if ext == ".gz" && strings.HasSuffix(strings.ToLower(base), ".tar.gz") {
+		if ext == ".md5" && strings.HasSuffix(strings.ToLower(base), ".tar.md5") {
+			folderName = "extracted_" + strings.TrimSuffix(base, ".tar.md5")
+		} else if ext == ".gz" && strings.HasSuffix(strings.ToLower(base), ".tar.gz") {
 			folderName = "extracted_" + strings.TrimSuffix(base, ".tar.gz")
 		} else {
 			folderName = "extracted_" + strings.TrimSuffix(base, ext)
@@ -72,10 +74,10 @@ func (c *FirmwareController) ExtractXiaomi(filePath, outputDir string) {
 		extractErr = c.model.ExtractZip(filePath, outputDir, onProgress)
 	} else if ext == ".tgz" || (ext == ".gz" && strings.HasSuffix(strings.ToLower(filePath), ".tar.gz")) {
 		extractErr = c.model.ExtractTarGz(filePath, outputDir, onProgress)
-	} else if ext == ".tar" {
+	} else if ext == ".tar" || ext == ".md5" || strings.HasSuffix(strings.ToLower(filePath), ".tar.md5") {
 		extractErr = c.model.ExtractTarRaw(filePath, outputDir, onProgress)
 	} else {
-		c.view.RenderError(fmt.Errorf("unsupported file format: %s. Supported formats: .zip, .tgz, .tar.gz, .tar", ext))
+		c.view.RenderError(fmt.Errorf("unsupported file format: %s. Supported formats: .zip, .tgz, .tar.gz, .tar, .tar.md5", ext))
 		return
 	}
 
@@ -84,5 +86,10 @@ func (c *FirmwareController) ExtractXiaomi(filePath, outputDir string) {
 		c.view.RenderError(extractErr)
 	} else {
 		c.view.RenderSuccess(fmt.Sprintf("Successfully extracted firmware to: %s", outputDir))
+		
+		// Run content validation / auto-detection
+		detectedType := c.model.DetectFirmwareType(outputDir)
+		fmt.Printf("\033[36m=== FIRMWARE VALIDATION / DETECTION ===\033[0m\n")
+		fmt.Printf("  Detected Content: \033[32m%s\033[0m\n\n", detectedType)
 	}
 }

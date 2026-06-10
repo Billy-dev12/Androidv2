@@ -151,3 +151,50 @@ func (fe *FirmwareExtractor) ExtractTar(r io.Reader, dest string, onProgress fun
 	}
 	return nil
 }
+
+// DetectFirmwareType scans the output directory and identifies the firmware brand/type.
+func (fe *FirmwareExtractor) DetectFirmwareType(dir string) string {
+	var detected []string
+
+	filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info.IsDir() {
+			return nil
+		}
+
+		name := strings.ToLower(info.Name())
+		if name == "payload.bin" {
+			detected = append(detected, "Google Pixel / OnePlus / Xiaomi (payload.bin)")
+		} else if name == "update.app" {
+			detected = append(detected, "Huawei / Honor (UPDATE.APP)")
+		} else if strings.HasSuffix(name, ".ozip") {
+			detected = append(detected, "Oppo / Realme (.ozip)")
+		} else if name == "update.pkg" {
+			detected = append(detected, "Vivo / iQOO (update.pkg)")
+		} else if strings.Contains(name, "scatter") && strings.HasSuffix(name, ".txt") {
+			detected = append(detected, fmt.Sprintf("MediaTek Scatter (%s)", info.Name()))
+		} else if strings.HasSuffix(name, ".tar.md5") || strings.HasSuffix(name, ".lz4") {
+			detected = append(detected, fmt.Sprintf("Samsung Firmware (%s)", info.Name()))
+		} else if name == "flashfile.xml" || name == "servicefile.xml" {
+			detected = append(detected, fmt.Sprintf("Motorola Firmware (%s)", info.Name()))
+		}
+		return nil
+	})
+
+	if len(detected) == 0 {
+		return "Generic / Unknown Firmware Structure"
+	}
+
+	// Remove duplicates if any, and join
+	unique := make(map[string]bool)
+	var result []string
+	for _, d := range detected {
+		if !unique[d] {
+			unique[d] = true
+			result = append(result, d)
+		}
+	}
+	return strings.Join(result, ", ")
+}
