@@ -29,3 +29,9 @@
   3. Mengotomatisasikan dekompresi seluruh berkas `.lz4` di dalam folder output menjadi berkas citra partisi mentah (`.img` / `.bin`) via utilitas `lz4` dan menghapus berkas `.lz4` aslinya.
 - **Mengapa:** Menyediakan hasil akhir berupa satu folder bersih yang terisi struktur berkas OS mentah transparan yang siap pakai dan mudah dipahami pengguna tanpa kerumitan sub-folder komponen ataupun format kompresi `.lz4`.
 - **Status:** ✅ Selesai
+
+### 2026-06-10 — Dokumentasi Cetak Biru Arsitektur Hybrid C#/Go
+- **File yang diubah:** `plan.md` [NEW]
+- **Apa yang dilakukan:** Membuat berkas `plan.md` yang memuat cetak biru (blueprint) arsitektur sistem hybrid desktop Go + C# beserta rencana tahapan pengembangannya (offline core execution dengan online auto-updater & dependency checker).
+- **Mengapa:** Memberikan acuan langkah terstruktur bagi developer untuk merealisasikan transisi aplikasi dari TUI Linux ke GUI Windows yang andal dan mudah didistribusikan.
+- **Status:** ✅ Selesai

@@ -10,9 +10,10 @@ Aplikasi ini adalah wrapper CLI berbasis bahasa pemrograman Go dengan arsitektur
 - Mengimplementasikan pendekatan generik pada Firmware Extractor (Outer Archive Extractor) dengan pemindaian tipe data otomatis (Auto-Detection) setelah ekstraksi untuk fleksibilitas maksimal.
 - Mengintegrasikan file `.gitignore` untuk mencegah berkas binary/arsip terkompresi/citra partisi besar terdorong ke repositori remote Git.
 - Mengimplementasikan `Samsung Firmware Extractor (Inner)` untuk membongkar berkas `.tar.md5` ke satu folder output utama (flat structure) dan mendekompresi seluruh berkas `.lz4` internal menjadi berkas citra partisi mentah (`.img` / `.bin`) via `DecompressFolderLZ4` demi struktur berkas OS transparan yang siap pakai.
+- Menyusun Rencana Arsitektur Hybrid C#/Go (plan.md) untuk mendefinisikan kerja offline inti dengan dukungan updater dan setup dependensi secara online.
 
 ## Masalah yang Sedang Dikerjakan
-- Selesai merefaktor Samsung Inner Extractor untuk mengekstrak seluruh komponen pilihan langsung ke satu folder output utama dan menjalankan dekompresi otomatis `.lz4` ke `.img`.
+- Menyelesaikan penyusunan rencana blueprint arsitektur sistem hybrid desktop C# + Go.
 
 ## Catatan Teknis Penting
 - `.gitignore` menyaring berkas `android-tool`, `extracted_*/`, serta file berformat `.zip`, `.tgz`, `.img`, `.lz4`, `.bin`, `.pkg`, `.app` secara rekursif.
@@ -26,6 +27,7 @@ Aplikasi ini adalah wrapper CLI berbasis bahasa pemrograman Go dengan arsitektur
 - `app/models/firmware.go` — Logika dekompresi arsip firmware, penentu tipe brand (`DetectFirmwareType`), pencarian komponen `.tar.md5` lokal (`FindSamsungFiles`), dekompresi file `.lz4` (`DecompressFolderLZ4`).
 - `app/controllers/firmware_controller.go` — Controller untuk mengarahkan proses ekstraksi dan menyajikan hasil validasi konten ke pengguna.
 - `resources/views/console.go` — View pembantu untuk menampilkan tabel device, menu interaktif, dan prompt input.
+- `plan.md` — Cetak biru arsitektur hybrid C# + Go dan roadmap pengembangan.
 
 ## TODO Berikutnya
 - [ ] Implementasi Fastboot Management Menu (Status: Soon)
