@@ -1,0 +1,28 @@
+# Executables
+android-tool
+
+# Output folders
+extracted_*/
+
+# Archives and big files
+*.zip
+*.tgz
+*.tar.gz
+*.tar
+*.tar.md5
+*.lz4
+*.img
+*.bin
+*.pkg
+*.app
+
+# Local IDEs / Go files
+.idea/
+.vscode/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out

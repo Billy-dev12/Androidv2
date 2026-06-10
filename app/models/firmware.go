@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -197,4 +198,67 @@ func (fe *FirmwareExtractor) DetectFirmwareType(dir string) string {
 		}
 	}
 	return strings.Join(result, ", ")
+}
+
+// FindSamsungFiles scans the given directory for Samsung AP, BL, CP, CSC, HOME_CSC files.
+func (fe *FirmwareExtractor) FindSamsungFiles(dir string) map[string]string {
+	files := make(map[string]string)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return files
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := strings.ToUpper(entry.Name())
+		path := filepath.Join(dir, entry.Name())
+
+		// Check prefix and extension (.tar or .tar.md5)
+		if strings.HasSuffix(name, ".TAR") || strings.HasSuffix(name, ".TAR.MD5") || strings.HasSuffix(name, ".MD5") {
+			if strings.HasPrefix(name, "AP_") {
+				files["AP"] = path
+			} else if strings.HasPrefix(name, "BL_") {
+				files["BL"] = path
+			} else if strings.HasPrefix(name, "CP_") {
+				files["CP"] = path
+			} else if strings.HasPrefix(name, "HOME_CSC_") {
+				files["HOME_CSC"] = path
+			} else if strings.HasPrefix(name, "CSC_") {
+				files["CSC"] = path
+			}
+		}
+	}
+	return files
+}
+
+// DecompressLZ4 decompresses an LZ4 file using the system lz4 tool.
+func (fe *FirmwareExtractor) DecompressLZ4(src, dest string) error {
+	cmd := exec.Command("lz4", "-d", "-f", src, dest)
+	return cmd.Run()
+}
+
+// DecompressFolderLZ4 scans the directory for any .lz4 files, decompresses them, and deletes the originals.
+func (fe *FirmwareExtractor) DecompressFolderLZ4(dir string, onProgress func(string)) error {
+	return filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+		if strings.HasSuffix(strings.ToLower(info.Name()), ".lz4") {
+			dest := strings.TrimSuffix(path, filepath.Ext(path))
+			if onProgress != nil {
+				onProgress(info.Name())
+			}
+			if err := fe.DecompressLZ4(path, dest); err != nil {
+				return err
+			}
+			// Delete the original lz4 file to clean up
+			os.Remove(path)
+		}
+		return nil
+	})
 }

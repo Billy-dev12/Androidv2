@@ -155,6 +155,7 @@ func (r *Router) enterInteractiveMode() {
 
 	firmwareOptions := []string{
 		"Extract Outer Archive (.zip, .tgz, .tar.gz, .tar, .tar.md5)",
+		"Samsung Firmware Extractor (Inner)",
 		"Back to Main Menu",
 	}
 
@@ -338,7 +339,9 @@ func (r *Router) executeFirmwareAction(index int, currentMenu *string) {
 		filePath := r.view.PromptInput("Masukkan Path File Firmware (.zip/.tgz/.tar.gz/.tar/.tar.md5): ")
 		outputDir := r.view.PromptInput("Masukkan Folder Output (kosongkan untuk default): ")
 		r.firmwareController.ExtractOuterArchive(filePath, outputDir)
-	case 1: // Back
+	case 1: // Samsung Inner Extractor
+		r.firmwareController.ExtractSamsungInner()
+	case 2: // Back
 		*currentMenu = "main"
 		r.view.SetRawMode(true)
 		return
