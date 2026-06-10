@@ -93,9 +93,13 @@ Jika Anda menjalankan aplikasi tanpa argumen tambahan:
 Aplikasi akan memuat menu utama:
 1. **ADB Management Menu** (Akan masuk ke Sub-Menu ADB)
 2. **Fastboot Management Menu** (Soon)
-3. **Xiaomi Firmware Extractor** (Soon)
+3. **Firmware Extractor** (Akan masuk ke Sub-Menu Brand Firmware Extractor)
 4. **MediaTek Port Monitor (BROM)** (Soon)
 5. **Exit**
+
+### Sub-Menu Firmware Extractor:
+* **Xiaomi**: Memilih ekstraktor firmware khusus Xiaomi (Soon/Under Development).
+* **Back to Main Menu**: Kembali ke halaman menu utama.
 
 ### Sub-Menu ADB Management:
 * **List Devices**: Menampilkan perangkat terhubung dalam format tabel.

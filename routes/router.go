@@ -10,11 +10,12 @@ import (
 
 // Router handles CLI argument parsing and controller routing.
 type Router struct {
-	deviceController *controllers.DeviceController
-	appController    *controllers.AppController
-	fileController   *controllers.FileController
-	view             *views.ConsoleView
-	executor         *models.ADBExecutor
+	deviceController   *controllers.DeviceController
+	appController      *controllers.AppController
+	fileController     *controllers.FileController
+	firmwareController *controllers.FirmwareController
+	view               *views.ConsoleView
+	executor           *models.ADBExecutor
 }
 
 // NewRouter creates and initializes a Router.
@@ -22,15 +23,17 @@ func NewRouter(
 	deviceController *controllers.DeviceController,
 	appController *controllers.AppController,
 	fileController *controllers.FileController,
+	firmwareController *controllers.FirmwareController,
 	view *views.ConsoleView,
 	executor *models.ADBExecutor,
 ) *Router {
 	return &Router{
-		deviceController: deviceController,
-		appController:    appController,
-		fileController:   fileController,
-		view:             view,
-		executor:         executor,
+		deviceController:   deviceController,
+		appController:      appController,
+		fileController:     fileController,
+		firmwareController: firmwareController,
+		view:               view,
+		executor:           executor,
 	}
 }
 
@@ -134,7 +137,7 @@ func (r *Router) enterInteractiveMode() {
 	mainOptions := []string{
 		"ADB Management Menu",
 		"Fastboot Management Menu (Soon)",
-		"Xiaomi Firmware Extractor (Soon)",
+		"Firmware Extractor",
 		"MediaTek Port Monitor (BROM) (Soon)",
 		"Exit",
 	}
@@ -150,6 +153,11 @@ func (r *Router) enterInteractiveMode() {
 		"Back to Main Menu",
 	}
 
+	firmwareOptions := []string{
+		"Xiaomi",
+		"Back to Main Menu",
+	}
+
 	currentMenu := "main"
 	activeIndex := 0
 
@@ -160,9 +168,12 @@ func (r *Router) enterInteractiveMode() {
 		if currentMenu == "main" {
 			title = "ANDROID V2 CORE ENGINE"
 			options = mainOptions
-		} else {
+		} else if currentMenu == "adb" {
 			title = "ADB MANAGEMENT"
 			options = adbOptions
+		} else if currentMenu == "firmware" {
+			title = "FIRMWARE EXTRACTOR"
+			options = firmwareOptions
 		}
 
 		r.view.RenderInteractiveMenu(title, options, activeIndex)
@@ -173,7 +184,7 @@ func (r *Router) enterInteractiveMode() {
 		}
 
 		if key == "q" {
-			if currentMenu == "adb" {
+			if currentMenu == "adb" || currentMenu == "firmware" {
 				currentMenu = "main"
 				activeIndex = 0
 				continue
@@ -201,6 +212,9 @@ func (r *Router) enterInteractiveMode() {
 					if activeIndex == 0 {
 						currentMenu = "adb"
 						activeIndex = 0
+					} else if activeIndex == 2 {
+						currentMenu = "firmware"
+						activeIndex = 0
 					} else if activeIndex == 4 {
 						r.view.SetRawMode(false)
 						fmt.Println("\nGoodbye!")
@@ -212,8 +226,13 @@ func (r *Router) enterInteractiveMode() {
 						fmt.Scanln(&dummy)
 						r.view.SetRawMode(true)
 					}
-				} else {
+				} else if currentMenu == "adb" {
 					r.executeADBAction(activeIndex, &currentMenu)
+					if currentMenu == "main" {
+						activeIndex = 0
+					}
+				} else if currentMenu == "firmware" {
+					r.executeFirmwareAction(activeIndex, &currentMenu)
 					if currentMenu == "main" {
 						activeIndex = 0
 					}
@@ -223,6 +242,9 @@ func (r *Router) enterInteractiveMode() {
 			if currentMenu == "main" {
 				if activeIndex == 0 {
 					currentMenu = "adb"
+					activeIndex = 0
+				} else if activeIndex == 2 {
+					currentMenu = "firmware"
 					activeIndex = 0
 				} else if activeIndex == 4 {
 					r.view.SetRawMode(false)
@@ -235,8 +257,13 @@ func (r *Router) enterInteractiveMode() {
 					fmt.Scanln(&dummy)
 					r.view.SetRawMode(true)
 				}
-			} else {
+			} else if currentMenu == "adb" {
 				r.executeADBAction(activeIndex, &currentMenu)
+				if currentMenu == "main" {
+					activeIndex = 0
+				}
+			} else if currentMenu == "firmware" {
+				r.executeFirmwareAction(activeIndex, &currentMenu)
 				if currentMenu == "main" {
 					activeIndex = 0
 				}
@@ -290,6 +317,28 @@ func (r *Router) executeADBAction(index int, currentMenu *string) {
 		deviceID := r.view.PromptInput("Masukkan Device ID (kosongkan untuk default): ")
 		r.fileController.Pull(remotePath, localPath, deviceID)
 	case 7: // Back
+		*currentMenu = "main"
+		r.view.SetRawMode(true)
+		return
+	}
+
+	fmt.Printf("\nPress Enter to return to menu...")
+	var dummy string
+	fmt.Scanln(&dummy)
+	r.view.SetRawMode(true)
+}
+
+// executeFirmwareAction runs the selected firmware extractor brand action.
+func (r *Router) executeFirmwareAction(index int, currentMenu *string) {
+	r.view.SetRawMode(false)
+	fmt.Println()
+
+	switch index {
+	case 0: // Xiaomi
+		filePath := r.view.PromptInput("Masukkan Path File Firmware (.zip/.tgz/.tar.gz/.tar): ")
+		outputDir := r.view.PromptInput("Masukkan Folder Output (kosongkan untuk default): ")
+		r.firmwareController.ExtractXiaomi(filePath, outputDir)
+	case 1: // Back
 		*currentMenu = "main"
 		r.view.SetRawMode(true)
 		return

@@ -15,6 +15,7 @@ func main() {
 	deviceModel := models.NewDeviceModel(executor)
 	appModel := models.NewApplicationModel(executor)
 	fileModel := models.NewFileTransferModel(executor)
+	firmwareModel := models.NewFirmwareExtractor()
 
 	// Initialize Views
 	view := views.NewConsoleView()
@@ -23,9 +24,10 @@ func main() {
 	deviceController := controllers.NewDeviceController(deviceModel, view)
 	appController := controllers.NewAppController(appModel, view)
 	fileController := controllers.NewFileController(fileModel, view)
+	firmwareController := controllers.NewFirmwareController(firmwareModel, view)
 
 	// Initialize Router
-	router := routes.NewRouter(deviceController, appController, fileController, view, executor)
+	router := routes.NewRouter(deviceController, appController, fileController, firmwareController, view, executor)
 
 	// Route the command line arguments
 	router.Route(os.Args)
