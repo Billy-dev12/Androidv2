@@ -9,21 +9,21 @@ Aplikasi ini adalah wrapper CLI berbasis bahasa pemrograman Go dengan arsitektur
 - Pencegahan celah keamanan seperti Zip Slip dan Directory Traversal pada model ekstraksi firmware (`app/models/firmware.go`).
 - Mengimplementasikan pendekatan generik pada Firmware Extractor (Outer Archive Extractor) dengan pemindaian tipe data otomatis (Auto-Detection) setelah ekstraksi untuk fleksibilitas maksimal.
 - Mengintegrasikan file `.gitignore` untuk mencegah berkas binary/arsip terkompresi/citra partisi besar terdorong ke repositori remote Git.
-- Mengimplementasikan filter ekstraksi parsial (selective component) pada Samsung Firmware Extractor (Inner) untuk hemat waktu & memori penyimpanan.
+- Mengimplementasikan filter ekstraksi parsial (selective component) pada Samsung Firmware Extractor (Inner) langsung dari file `.zip` utama Samsung ke file `.tar.md5` mentah tanpa dekompresi internal `.lz4` (menghemat waktu & ruang penyimpanan).
 
 ## Masalah yang Sedang Dikerjakan
-- Selesai mengimplementasikan `.gitignore` dan modul `Samsung Firmware Extractor (Inner)` dengan dukungan ekstraksi komponen spesifik (AP, BL, CP, CSC, HOME_CSC) beserta dekompresi otomatis `.lz4` ke `.img`.
+- Selesai merefaktor Samsung Inner Extractor untuk mengekstrak komponen spesifik `.tar.md5` langsung dari ZIP utama tanpa membongkar `.img`/`.lz4` di dalamnya.
 
 ## Catatan Teknis Penting
 - `.gitignore` menyaring berkas `android-tool`, `extracted_*/`, serta file berformat `.zip`, `.tgz`, `.img`, `.lz4`, `.bin`, `.pkg`, `.app` secara rekursif.
-- Pencarian file Samsung menggunakan pola prefix berkas (`AP_`, `BL_`, `CP_`, `CSC_`, `HOME_CSC_`) dan ekstensi `.tar` / `.tar.md5`.
+- Komponen Samsung di dalam file `.zip` dipindai berdasarkan prefix nama berkas (`AP_`, `BL_`, `CP_`, `CSC_`, `HOME_CSC_`) dan ekstensi `.tar` / `.tar.md5`.
 - Pemilihan berkas parsial Samsung mendukung parsing string yang dipisahkan koma (case-insensitive, contoh: `ap,bl`).
-- Dekompresi `.lz4` memanggil perintah eksternal `lz4 -d -f <src> <dest>` lalu menghapus berkas sumber `.lz4` demi efisiensi kapasitas.
+- Ekstraksi khusus berkas terpilih menggunakan fungsi `ExtractSpecificFilesFromZip` dengan pengamanan directory traversal.
 
 ## File Kunci Project
 - `main.go` — Titik masuk utama aplikasi untuk inisialisasi model, view, controller, dan router.
 - `routes/router.go` — Router utama yang mem-parsing argumen CLI dan mengatur alur TUI interaktif.
-- `app/models/firmware.go` — Logika dekompresi arsip firmware, penentu tipe brand (`DetectFirmwareType`), pencarian berkas Samsung (`FindSamsungFiles`), dan dekompresi LZ4.
+- `app/models/firmware.go` — Logika dekompresi arsip firmware, penentu tipe brand (`DetectFirmwareType`), pencarian komponen di ZIP (`FindSamsungComponentsInZip`), dan ekstraksi spesifik (`ExtractSpecificFilesFromZip`).
 - `app/controllers/firmware_controller.go` — Controller untuk mengarahkan proses ekstraksi dan menyajikan hasil validasi konten ke pengguna.
 - `resources/views/console.go` — View pembantu untuk menampilkan tabel device, menu interaktif, dan prompt input.
 

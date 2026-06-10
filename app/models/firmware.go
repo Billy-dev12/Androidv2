@@ -262,3 +262,96 @@ func (fe *FirmwareExtractor) DecompressFolderLZ4(dir string, onProgress func(str
 		return nil
 	})
 }
+
+// FindSamsungComponentsInZip scans the ZIP and maps component names to actual filenames in ZIP.
+func (fe *FirmwareExtractor) FindSamsungComponentsInZip(zipPath string) (map[string]string, error) {
+	components := make(map[string]string)
+	r, err := zip.OpenReader(zipPath)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+
+	for _, f := range r.File {
+		name := strings.ToUpper(filepath.Base(f.Name))
+		if strings.HasSuffix(name, ".TAR") || strings.HasSuffix(name, ".TAR.MD5") || strings.HasSuffix(name, ".MD5") {
+			if strings.HasPrefix(name, "AP_") {
+				components["AP"] = f.Name
+			} else if strings.HasPrefix(name, "BL_") {
+				components["BL"] = f.Name
+			} else if strings.HasPrefix(name, "CP_") {
+				components["CP"] = f.Name
+			} else if strings.HasPrefix(name, "HOME_CSC_") {
+				components["HOME_CSC"] = f.Name
+			} else if strings.HasPrefix(name, "CSC_") {
+				components["CSC"] = f.Name
+			}
+		}
+	}
+	return components, nil
+}
+
+// ExtractSpecificFilesFromZip extracts only selected files from the ZIP archive.
+func (fe *FirmwareExtractor) ExtractSpecificFilesFromZip(zipPath string, filesToExtract map[string]string, dest string, onProgress func(string)) error {
+	r, err := zip.OpenReader(zipPath)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+
+	if err := os.MkdirAll(dest, 0755); err != nil {
+		return err
+	}
+
+	// Create a fast lookup map
+	lookup := make(map[string]string)
+	for comp, zipName := range filesToExtract {
+		lookup[zipName] = comp
+	}
+
+	for _, f := range r.File {
+		_, ok := lookup[f.Name]
+		if !ok {
+			continue
+		}
+
+		if onProgress != nil {
+			onProgress(f.Name)
+		}
+
+		// Prevent Zip Slip vulnerability
+		fpath := filepath.Join(dest, filepath.Base(f.Name))
+		if !strings.HasPrefix(fpath, filepath.Clean(dest)+string(os.PathSeparator)) {
+			return fmt.Errorf("illegal file path in zip: %s", f.Name)
+		}
+
+		if f.FileInfo().IsDir() {
+			os.MkdirAll(fpath, os.ModePerm)
+			continue
+		}
+
+		if err = os.MkdirAll(filepath.Dir(fpath), os.ModePerm); err != nil {
+			return err
+		}
+
+		outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+		if err != nil {
+			return err
+		}
+
+		rc, err := f.Open()
+		if err != nil {
+			outFile.Close()
+			return err
+		}
+
+		_, err = io.Copy(outFile, rc)
+		outFile.Close()
+		rc.Close()
+		if err != nil {
+			return err
+		}
+		fmt.Println() // Newline after extracting this component
+	}
+	return nil
+}
