@@ -28,7 +28,10 @@ extracted_*/
 *.out
 
 # Documentation files (local only, not for public)
-*.md
+DOCUMENTATION.md
+MEMORY_BANK.md
+dokumentasi.md
+plan.md
 *.txt
 
 # Opencode AI config
