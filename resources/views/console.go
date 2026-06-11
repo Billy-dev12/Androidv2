@@ -117,7 +117,6 @@ func (v *ConsoleView) RenderHelp() {
 		{"screenshot", "[output-path] [device-id]", "Capture device screen to PNG"},
 		{"diagnostics", "[device-id]", "Show device diagnostics (memory, CPU, storage, display, network, sensors)"},
 		{"firmware partitions", "<folder>", "List partition images (.img/.bin) in extracted folder"},
-		{"firmware buildprop", "<folder>", "Show device info from build.prop in extracted folder"},
 		{"env", "", "Check system environment (adb, fastboot, lz4, etc)"},
 		{"config", "[show|set <key> <value>]", "View or modify configuration"},
 		{"history", "", "Show command history log"},
@@ -299,51 +298,6 @@ func (v *ConsoleView) RenderPartitionInfo(partitions []models.PartitionInfo) {
 	}
 	fmt.Printf("  %sTotal:%s %d partition(s), %s\n\n", colorGray, colorReset, len(partitions), totalHuman)
 }
-
-// RenderBuildProp prints parsed build.prop information.
-func (v *ConsoleView) RenderBuildProp(props map[string]string) {
-	interestingKeys := []struct {
-		Key     string
-		Label   string
-	}{
-		{"ro.product.model", "Model"},
-		{"ro.product.marketname", "Marketing Name"},
-		{"ro.product.name", "Product Name"},
-		{"ro.product.board", "Board"},
-		{"ro.product.cpu.abi", "CPU ABI"},
-		{"ro.build.version.release", "Android Version"},
-		{"ro.build.version.sdk", "SDK Level"},
-		{"ro.build.version.security_patch", "Security Patch"},
-		{"ro.build.date", "Build Date"},
-		{"ro.build.fingerprint", "Build Fingerprint"},
-		{"ro.build.description", "Build Description"},
-		{"ro.product.manufacturer", "Manufacturer"},
-		{"ro.product.brand", "Brand"},
-		{"ro.hardware", "Hardware"},
-		{"ro.soc.model", "SoC Model"},
-		{"persist.sys.timezone", "Timezone"},
-	}
-
-	fmt.Println()
-	fmt.Printf("%s%s=== BUILD.PROP INFORMATION ===%s\n", colorCyan, styleBold, colorReset)
-	fmt.Printf("  Property source: %s%d properties loaded%s\n\n", colorGray, len(props), colorReset)
-
-	hasAny := false
-	for _, item := range interestingKeys {
-		val, exists := props[item.Key]
-		if !exists || val == "" {
-			continue
-		}
-		hasAny = true
-		fmt.Printf("  %s%-18s:%s %s\n", colorGreen, item.Label, colorReset, val)
-	}
-
-	if !hasAny {
-		fmt.Printf("  %sNo relevant device properties found.%s\n", colorYellow, colorReset)
-	}
-	fmt.Println()
-}
-
 // RenderDeviceInfo prints a styled summary of the device properties.
 func (v *ConsoleView) RenderDeviceInfo(info map[string]string) {
 	fmt.Println()

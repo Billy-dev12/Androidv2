@@ -181,7 +181,7 @@ func (r *Router) Route(args []string) {
 	case "firmware":
 		r.history.Append("firmware", args[2:]...)
 		if len(args) < 3 {
-			r.view.RenderError(fmt.Errorf("missing subcommand\nUsage: android-tool firmware <partitions|buildprop> <folder-path>"))
+			r.view.RenderError(fmt.Errorf("missing subcommand\nUsage: android-tool firmware partitions <folder-path>"))
 			return
 		}
 		subcommand := args[2]
@@ -192,10 +192,8 @@ func (r *Router) Route(args []string) {
 		switch subcommand {
 		case "partitions":
 			r.firmwareController.ShowPartitionInfo(folderPath)
-		case "buildprop":
-			r.firmwareController.ShowBuildProp(folderPath)
 		default:
-			r.view.RenderError(fmt.Errorf("unknown firmware subcommand: %s\nAvailable: partitions, buildprop", subcommand))
+			r.view.RenderError(fmt.Errorf("unknown firmware subcommand: %s\nAvailable: partitions", subcommand))
 		}
 
 	case "help", "-h", "--help":
@@ -238,7 +236,6 @@ func (r *Router) enterInteractiveMode() {
 		"Extract Outer Archive (.zip, .tgz, .tar.gz, .tar, .tar.md5)",
 		"Samsung Firmware Extractor (Inner)",
 		"Partition Info Report (scan extracted folder)",
-		"Build.Prop Info (device info from extracted folder)",
 		"Back to Main Menu",
 	}
 
@@ -569,10 +566,7 @@ func (r *Router) executeFirmwareAction(index int, currentMenu *string) {
 	case 2: // Partition Info Report
 		folderPath := r.view.PromptInput("Masukkan Path Folder hasil extract firmware: ")
 		r.firmwareController.ShowPartitionInfo(folderPath)
-	case 3: // Build.Prop Info
-		folderPath := r.view.PromptInput("Masukkan Path Folder hasil extract firmware: ")
-		r.firmwareController.ShowBuildProp(folderPath)
-	case 4: // Back
+	case 3: // Back
 		*currentMenu = "main"
 		r.view.SetRawMode(true)
 		return

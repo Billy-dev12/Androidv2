@@ -219,30 +219,3 @@ func (c *FirmwareController) ShowPartitionInfo(folderPath string) {
 	c.view.RenderPartitionInfo(partitions)
 }
 
-// ShowBuildProp searches for and parses build.prop in the extracted firmware folder.
-func (c *FirmwareController) ShowBuildProp(folderPath string) {
-	if folderPath == "" {
-		c.view.RenderError(fmt.Errorf("folder path cannot be empty"))
-		return
-	}
-	info, err := os.Stat(folderPath)
-	if os.IsNotExist(err) || !info.IsDir() {
-		c.view.RenderError(fmt.Errorf("directory does not exist: %s", folderPath))
-		return
-	}
-	propPath, err := c.model.FindBuildProp(folderPath)
-	if err != nil {
-		c.view.RenderError(fmt.Errorf("error searching for build.prop: %w", err))
-		return
-	}
-	if propPath == "" {
-		fmt.Printf("\n\033[33mbuild.prop not found in: %s\033[0m\n\n", folderPath)
-		return
-	}
-	props, err := c.model.ParseBuildProp(propPath)
-	if err != nil {
-		c.view.RenderError(fmt.Errorf("error parsing build.prop: %w", err))
-		return
-	}
-	c.view.RenderBuildProp(props)
-}
