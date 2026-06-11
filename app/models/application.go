@@ -30,6 +30,21 @@ func (m *ApplicationModel) Install(apkPath string, deviceID string) (string, err
 	return stdout, nil
 }
 
+// InstallForce installs an APK with force flags (-r -d -t) to bypass SDK/downgrade/test restrictions.
+func (m *ApplicationModel) InstallForce(apkPath string, deviceID string) (string, error) {
+	args := []string{}
+	if deviceID != "" {
+		args = append(args, "-s", deviceID)
+	}
+	args = append(args, "install", "-r", "-d", "-t", apkPath)
+
+	stdout, stderr, err := m.executor.Execute(args...)
+	if err != nil {
+		return "", fmt.Errorf("force install failed: %w (stderr: %s)", err, strings.TrimSpace(stderr))
+	}
+	return stdout, nil
+}
+
 // Uninstall uninstalls a package from the target device.
 func (m *ApplicationModel) Uninstall(packageName string, deviceID string) (string, error) {
 	args := []string{}

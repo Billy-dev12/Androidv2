@@ -42,6 +42,26 @@ func (c *AppController) Install(apkPath string, deviceID string) {
 	c.view.RenderSuccess(msg)
 }
 
+// InstallForce handles the "force-install" command with -r -d -t flags.
+func (c *AppController) InstallForce(apkPath string, deviceID string) {
+	if strings.TrimSpace(apkPath) == "" {
+		c.view.RenderError(errors.New("missing required argument: <apk-path>"))
+		return
+	}
+
+	_, err := c.model.InstallForce(apkPath, deviceID)
+	if err != nil {
+		c.view.RenderError(err)
+		return
+	}
+
+	msg := "Successfully force-installed " + apkPath
+	if deviceID != "" {
+		msg += " on device " + deviceID
+	}
+	c.view.RenderSuccess(msg)
+}
+
 // Uninstall handles the "uninstall" command.
 func (c *AppController) Uninstall(packageName string, deviceID string) {
 	if strings.TrimSpace(packageName) == "" {

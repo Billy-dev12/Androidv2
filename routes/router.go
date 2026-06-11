@@ -100,6 +100,19 @@ func (r *Router) Route(args []string) {
 		r.history.Append("install", apkPath, deviceID)
 		r.appController.Install(apkPath, deviceID)
 
+	case "force-install":
+		if len(args) < 3 {
+			r.view.RenderError(fmt.Errorf("missing argument: force-install command requires an APK path\nUsage: android-tool force-install <apk-path> [device-id]"))
+			return
+		}
+		apkPath := args[2]
+		var deviceID string
+		if len(args) > 3 {
+			deviceID = args[3]
+		}
+		r.history.Append("force-install", apkPath, deviceID)
+		r.appController.InstallForce(apkPath, deviceID)
+
 	case "uninstall":
 		if len(args) < 3 {
 			r.view.RenderError(fmt.Errorf("missing argument: uninstall command requires a package name\nUsage: android-tool uninstall <package-name> [device-id]"))
@@ -225,6 +238,7 @@ func (r *Router) enterInteractiveMode() {
 		"Device Info",
 		"Reboot Device",
 		"Install APK",
+		"Force Install APK",
 		"Uninstall Package",
 		"Push File (Local -> Device)",
 		"Pull File (Device -> Local)",
@@ -431,12 +445,17 @@ func (r *Router) executeADBAction(index int, currentMenu *string) {
 		deviceID := r.view.PromptInput("Enter Device ID (leave empty for default): ")
 		r.history.Append("install", apkPath, deviceID)
 		r.appController.Install(apkPath, deviceID)
-	case 4: // Uninstall Package
+	case 4: // Force Install APK
+		apkPath := r.view.PromptInput("Enter APK Path: ")
+		deviceID := r.view.PromptInput("Enter Device ID (leave empty for default): ")
+		r.history.Append("force-install", apkPath, deviceID)
+		r.appController.InstallForce(apkPath, deviceID)
+	case 5: // Uninstall Package
 		pkgName := r.view.PromptInput("Enter Package Name: ")
 		deviceID := r.view.PromptInput("Enter Device ID (leave empty for default): ")
 		r.history.Append("uninstall", pkgName, deviceID)
 		r.appController.Uninstall(pkgName, deviceID)
-	case 5: // Push File
+	case 6: // Push File
 		fmt.Println("\033[90m💡 [Petunjuk Jalur Berkas / Path Helper]\033[0m")
 		fmt.Println("   • \033[36mLocal Path\033[0m  (PC Anda): File/folder yang ingin diunggah.")
 		fmt.Println("     Contoh: \033[32m./file.txt\033[0m (di folder saat ini) atau \033[32m/home/billy/Downloads/app.apk\033[0m")
@@ -448,7 +467,7 @@ func (r *Router) executeADBAction(index int, currentMenu *string) {
 		deviceID := r.view.PromptInput("Masukkan Device ID (kosongkan untuk default): ")
 		r.history.Append("push", localPath, remotePath, deviceID)
 		r.fileController.Push(localPath, remotePath, deviceID)
-	case 6: // Pull File
+	case 7: // Pull File
 		fmt.Println("\033[90m💡 [Petunjuk Jalur Berkas / Path Helper]\033[0m")
 		fmt.Println("   • \033[36mRemote Path\033[0m (Android): File/folder yang ingin diambil dari HP.")
 		fmt.Println("     Contoh: \033[32m/sdcard/Download/foto.jpg\033[0m atau \033[32m/sdcard/DCIM/Camera/\033[0m")
@@ -460,7 +479,7 @@ func (r *Router) executeADBAction(index int, currentMenu *string) {
 		deviceID := r.view.PromptInput("Masukkan Device ID (kosongkan untuk default): ")
 		r.history.Append("pull", remotePath, localPath, deviceID)
 		r.fileController.Pull(remotePath, localPath, deviceID)
-	case 7: // Screenshot
+	case 8: // Screenshot
 		fmt.Println("\033[90m📸 [Screenshot Capture]\033[0m")
 		fmt.Println("   Akan menyimpan screenshot ke file PNG di folder saat ini.")
 		fmt.Println()
@@ -468,7 +487,7 @@ func (r *Router) executeADBAction(index int, currentMenu *string) {
 		deviceID := r.view.PromptInput("Masukkan Device ID (kosongkan untuk default): ")
 		r.history.Append("screenshot", outputPath, deviceID)
 		r.deviceController.Screenshot(deviceID, outputPath)
-	case 8: // Back
+	case 9: // Back
 		*currentMenu = "main"
 		r.view.SetRawMode(true)
 		return

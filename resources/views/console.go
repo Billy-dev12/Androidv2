@@ -111,6 +111,7 @@ func (v *ConsoleView) RenderHelp() {
 		{"info", "[device-id]", "Get detailed information about the device"},
 		{"reboot", "[device-id]", "Reboot the default or specified device"},
 		{"install", "<apk-path> [device-id]", "Install an APK file on the target device"},
+		{"force-install", "<apk-path> [device-id]", "Force install APK (bypass SDK/downgrade/test restrictions)"},
 		{"uninstall", "<package-name> [device-id]", "Uninstall a package from the target device"},
 		{"push", "<local-path> <remote-path> [device-id]", "Push file/folder to device"},
 		{"pull", "<remote-path> <local-path> [device-id]", "Pull file/folder from device"},
