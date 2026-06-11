@@ -26,3 +26,12 @@ extracted_*/
 *.dylib
 *.test
 *.out
+
+# Documentation files (local only, not for public)
+*.md
+*.txt
+
+# Opencode AI config
+.opencode/
+opencode.json
+AGENTS.md

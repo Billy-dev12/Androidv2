@@ -2,7 +2,10 @@ package models
 
 import (
 	"bytes"
+	"fmt"
+	"os"
 	"os/exec"
+	"strings"
 )
 
 // ADBExecutor handles executing ADB commands.
@@ -17,6 +20,23 @@ func NewADBExecutor() *ADBExecutor {
 func (a *ADBExecutor) IsInstalled() bool {
 	_, err := exec.LookPath("adb")
 	return err == nil
+}
+
+// ExecuteToFile runs an adb command and writes stdout directly to a file.
+func (a *ADBExecutor) ExecuteToFile(outputPath string, args ...string) error {
+	cmd := exec.Command("adb", args...)
+	f, err := os.Create(outputPath)
+	if err != nil {
+		return fmt.Errorf("cannot create output file: %w", err)
+	}
+	defer f.Close()
+	cmd.Stdout = f
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("adb command failed: %w (stderr: %s)", err, strings.TrimSpace(stderr.String()))
+	}
+	return nil
 }
 
 // Execute runs an adb command with the specified arguments.

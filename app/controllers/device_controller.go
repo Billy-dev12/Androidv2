@@ -1,6 +1,8 @@
 package controllers
 
 import (
+	"strings"
+
 	"android-tool-mvc/app/models"
 	"android-tool-mvc/resources/views"
 )
@@ -52,5 +54,18 @@ func (c *DeviceController) ShowDeviceInfo(deviceID string) {
 		return
 	}
 	c.view.RenderDeviceInfo(info)
+}
+
+// Screenshot captures the device screen and saves to a PNG file.
+func (c *DeviceController) Screenshot(deviceID string, outputPath string) {
+	if strings.TrimSpace(outputPath) == "" {
+		outputPath = ""
+	}
+	path, err := c.model.Screenshot(deviceID, outputPath)
+	if err != nil {
+		c.view.RenderError(err)
+		return
+	}
+	c.view.RenderSuccess("Screenshot saved to " + path)
 }
 

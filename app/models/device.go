@@ -3,6 +3,7 @@ package models
 import (
 	"fmt"
 	"strings"
+	"time"
 )
 
 // Device represents an Android device.
@@ -167,5 +168,23 @@ func (m *DeviceModel) GetDetailedInfo(deviceID string) (map[string]string, error
 	info["Bootloader (UBL)"] = ublStatus
 
 	return info, nil
+}
+
+// Screenshot captures the device screen and saves to a PNG file.
+func (m *DeviceModel) Screenshot(deviceID string, outputPath string) (string, error) {
+	if outputPath == "" {
+		outputPath = fmt.Sprintf("screenshot_%s.png", time.Now().Format("20060102_150405"))
+	}
+	args := []string{}
+	if deviceID != "" {
+		args = append(args, "-s", deviceID)
+	}
+	args = append(args, "exec-out", "screencap", "-p")
+
+	err := m.executor.ExecuteToFile(outputPath, args...)
+	if err != nil {
+		return "", fmt.Errorf("screenshot failed: %w", err)
+	}
+	return outputPath, nil
 }
 

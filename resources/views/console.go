@@ -114,6 +114,13 @@ func (v *ConsoleView) RenderHelp() {
 		{"uninstall", "<package-name> [device-id]", "Uninstall a package from the target device"},
 		{"push", "<local-path> <remote-path> [device-id]", "Push file/folder to device"},
 		{"pull", "<remote-path> <local-path> [device-id]", "Pull file/folder from device"},
+		{"screenshot", "[output-path] [device-id]", "Capture device screen to PNG"},
+		{"diagnostics", "[device-id]", "Show device diagnostics (memory, CPU, storage, display, network, sensors)"},
+		{"firmware partitions", "<folder>", "List partition images (.img/.bin) in extracted folder"},
+		{"firmware buildprop", "<folder>", "Show device info from build.prop in extracted folder"},
+		{"env", "", "Check system environment (adb, fastboot, lz4, etc)"},
+		{"config", "[show|set <key> <value>]", "View or modify configuration"},
+		{"history", "", "Show command history log"},
 		{"help", "", "Show this help message"},
 	}
 
@@ -195,6 +202,146 @@ func (v *ConsoleView) PromptInput(promptText string) string {
 	var input string
 	fmt.Scanln(&input)
 	return strings.TrimSpace(input)
+}
+
+// RenderSystemInfo prints a styled system/config/history report.
+func (v *ConsoleView) RenderSystemInfo(report string) {
+	fmt.Println()
+	for _, line := range strings.Split(report, "\n") {
+		if strings.HasPrefix(line, "===") {
+			fmt.Printf("%s%s%s\n", colorCyan, line, colorReset)
+		} else if strings.Contains(line, "✓") {
+			fmt.Printf("  %s%s%s\n", colorGreen, strings.TrimSpace(line), colorReset)
+		} else if strings.Contains(line, "✗") {
+			fmt.Printf("  %s%s%s\n", colorRed, strings.TrimSpace(line), colorReset)
+		} else if strings.HasPrefix(line, "  ") {
+			fmt.Printf("%s%s%s\n", colorGray, line, colorReset)
+		} else {
+			fmt.Println(line)
+		}
+	}
+	fmt.Println()
+}
+
+// RenderDiagnostics prints a styled diagnostics report.
+func (v *ConsoleView) RenderDiagnostics(report string) {
+	fmt.Println()
+	for _, line := range strings.Split(report, "\n") {
+		if strings.HasPrefix(line, "===") {
+			fmt.Printf("%s%s%s\n", colorCyan, line, colorReset)
+		} else if strings.HasPrefix(line, "  ") {
+			fmt.Printf("%s%s\n", colorGray, line)
+		} else {
+			fmt.Println(line)
+		}
+	}
+	fmt.Println()
+}
+
+// RenderPartitionInfo prints a table of partition image files.
+func (v *ConsoleView) RenderPartitionInfo(partitions []models.PartitionInfo) {
+	fmt.Println()
+	fmt.Printf("%s%s=== PARTITION INFORMATION ===%s\n", colorCyan, styleBold, colorReset)
+
+	maxNameLen := 4
+	maxSizeLen := 4
+	maxTypeLen := 4
+	for _, p := range partitions {
+		if len(p.Name) > maxNameLen {
+			maxNameLen = len(p.Name)
+		}
+		if len(p.SizeHuman) > maxSizeLen {
+			maxSizeLen = len(p.SizeHuman)
+		}
+		if len(p.FileType) > maxTypeLen {
+			maxTypeLen = len(p.FileType)
+		}
+	}
+	padding := 2
+	nameCol := maxNameLen + padding
+	sizeCol := maxSizeLen + padding
+	typeCol := maxTypeLen + padding
+
+	sep := func(l, m, r string) string {
+		return l + strings.Repeat("─", nameCol) + m + strings.Repeat("─", sizeCol) + m + strings.Repeat("─", typeCol) + r
+	}
+
+	fmt.Println(colorCyan + sep("┌", "┬", "┐") + colorReset)
+	hName := fmt.Sprintf(" %-*s", nameCol-1, "FILE")
+	hSize := fmt.Sprintf(" %-*s", sizeCol-1, "SIZE")
+	hType := fmt.Sprintf(" %-*s", typeCol-1, "TYPE")
+	fmt.Printf("%s│%s%s%s%s│%s%s%s%s│%s%s%s%s│%s\n", colorCyan, colorReset, styleBold, hName, colorCyan, colorReset, styleBold, hSize, colorCyan, colorReset, styleBold, hType, colorCyan, colorReset)
+	fmt.Println(colorCyan + sep("├", "┼", "┤") + colorReset)
+
+	for _, p := range partitions {
+		rName := fmt.Sprintf(" %-*s", nameCol-1, p.Name)
+		rSize := fmt.Sprintf(" %-*s", sizeCol-1, p.SizeHuman)
+		rType := fmt.Sprintf(" %-*s", typeCol-1, p.FileType)
+		fmt.Printf("%s│%s%s%s│%s%s%s│%s%s%s│%s\n", colorCyan, colorReset, rName, colorCyan, colorReset, rSize, colorCyan, colorReset, rType, colorCyan, colorReset)
+	}
+
+	fmt.Println(colorCyan + sep("└", "┴", "┘") + colorReset)
+	fmt.Println()
+
+	// Summary
+	var totalSize int64
+	for _, p := range partitions {
+		totalSize += p.Size
+	}
+	var totalHuman string
+	switch {
+	case totalSize >= 1<<30:
+		totalHuman = fmt.Sprintf("%.2f GB", float64(totalSize)/(1<<30))
+	case totalSize >= 1<<20:
+		totalHuman = fmt.Sprintf("%.2f MB", float64(totalSize)/(1<<20))
+	default:
+		totalHuman = fmt.Sprintf("%d B", totalSize)
+	}
+	fmt.Printf("  %sTotal:%s %d partition(s), %s\n\n", colorGray, colorReset, len(partitions), totalHuman)
+}
+
+// RenderBuildProp prints parsed build.prop information.
+func (v *ConsoleView) RenderBuildProp(props map[string]string) {
+	interestingKeys := []struct {
+		Key     string
+		Label   string
+	}{
+		{"ro.product.model", "Model"},
+		{"ro.product.marketname", "Marketing Name"},
+		{"ro.product.name", "Product Name"},
+		{"ro.product.board", "Board"},
+		{"ro.product.cpu.abi", "CPU ABI"},
+		{"ro.build.version.release", "Android Version"},
+		{"ro.build.version.sdk", "SDK Level"},
+		{"ro.build.version.security_patch", "Security Patch"},
+		{"ro.build.date", "Build Date"},
+		{"ro.build.fingerprint", "Build Fingerprint"},
+		{"ro.build.description", "Build Description"},
+		{"ro.product.manufacturer", "Manufacturer"},
+		{"ro.product.brand", "Brand"},
+		{"ro.hardware", "Hardware"},
+		{"ro.soc.model", "SoC Model"},
+		{"persist.sys.timezone", "Timezone"},
+	}
+
+	fmt.Println()
+	fmt.Printf("%s%s=== BUILD.PROP INFORMATION ===%s\n", colorCyan, styleBold, colorReset)
+	fmt.Printf("  Property source: %s%d properties loaded%s\n\n", colorGray, len(props), colorReset)
+
+	hasAny := false
+	for _, item := range interestingKeys {
+		val, exists := props[item.Key]
+		if !exists || val == "" {
+			continue
+		}
+		hasAny = true
+		fmt.Printf("  %s%-18s:%s %s\n", colorGreen, item.Label, colorReset, val)
+	}
+
+	if !hasAny {
+		fmt.Printf("  %sNo relevant device properties found.%s\n", colorYellow, colorReset)
+	}
+	fmt.Println()
 }
 
 // RenderDeviceInfo prints a styled summary of the device properties.

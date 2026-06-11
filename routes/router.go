@@ -2,6 +2,7 @@ package routes
 
 import (
 	"fmt"
+	"strings"
 
 	"android-tool-mvc/app/controllers"
 	"android-tool-mvc/app/models"
@@ -10,12 +11,16 @@ import (
 
 // Router handles CLI argument parsing and controller routing.
 type Router struct {
-	deviceController   *controllers.DeviceController
-	appController      *controllers.AppController
-	fileController     *controllers.FileController
-	firmwareController *controllers.FirmwareController
-	view               *views.ConsoleView
-	executor           *models.ADBExecutor
+	deviceController      *controllers.DeviceController
+	appController         *controllers.AppController
+	fileController        *controllers.FileController
+	firmwareController    *controllers.FirmwareController
+	diagnosticsController *controllers.DiagnosticsController
+	systemController      *controllers.SystemController
+	view                  *views.ConsoleView
+	executor              *models.ADBExecutor
+	history               *models.HistoryModel
+	config                *models.ConfigModel
 }
 
 // NewRouter creates and initializes a Router.
@@ -24,16 +29,25 @@ func NewRouter(
 	appController *controllers.AppController,
 	fileController *controllers.FileController,
 	firmwareController *controllers.FirmwareController,
+	diagnosticsController *controllers.DiagnosticsController,
+	systemController *controllers.SystemController,
 	view *views.ConsoleView,
 	executor *models.ADBExecutor,
+	history *models.HistoryModel,
+	config *models.ConfigModel,
 ) *Router {
+	_ = config.Load()
 	return &Router{
-		deviceController:   deviceController,
-		appController:      appController,
-		fileController:     fileController,
-		firmwareController: firmwareController,
-		view:               view,
-		executor:           executor,
+		deviceController:      deviceController,
+		appController:         appController,
+		fileController:        fileController,
+		firmwareController:    firmwareController,
+		diagnosticsController: diagnosticsController,
+		systemController:      systemController,
+		view:                  view,
+		executor:              executor,
+		history:               history,
+		config:                config,
 	}
 }
 
@@ -54,6 +68,7 @@ func (r *Router) Route(args []string) {
 
 	switch command {
 	case "devices", "list":
+		r.history.Append("devices")
 		r.deviceController.Index()
 
 	case "info":
@@ -61,6 +76,7 @@ func (r *Router) Route(args []string) {
 		if len(args) > 2 {
 			deviceID = args[2]
 		}
+		r.history.Append("info", deviceID)
 		r.deviceController.ShowDeviceInfo(deviceID)
 
 	case "reboot":
@@ -68,6 +84,7 @@ func (r *Router) Route(args []string) {
 		if len(args) > 2 {
 			deviceID = args[2]
 		}
+		r.history.Append("reboot", deviceID)
 		r.deviceController.Reboot(deviceID)
 
 	case "install":
@@ -80,6 +97,7 @@ func (r *Router) Route(args []string) {
 		if len(args) > 3 {
 			deviceID = args[3]
 		}
+		r.history.Append("install", apkPath, deviceID)
 		r.appController.Install(apkPath, deviceID)
 
 	case "uninstall":
@@ -92,6 +110,7 @@ func (r *Router) Route(args []string) {
 		if len(args) > 3 {
 			deviceID = args[3]
 		}
+		r.history.Append("uninstall", packageName, deviceID)
 		r.appController.Uninstall(packageName, deviceID)
 
 	case "push":
@@ -105,6 +124,7 @@ func (r *Router) Route(args []string) {
 		if len(args) > 4 {
 			deviceID = args[4]
 		}
+		r.history.Append("push", localPath, remotePath, deviceID)
 		r.fileController.Push(localPath, remotePath, deviceID)
 
 	case "pull":
@@ -118,7 +138,65 @@ func (r *Router) Route(args []string) {
 		if len(args) > 4 {
 			deviceID = args[4]
 		}
+		r.history.Append("pull", remotePath, localPath, deviceID)
 		r.fileController.Pull(remotePath, localPath, deviceID)
+
+	case "screenshot":
+		var outputPath string
+		var deviceID string
+		if len(args) > 2 {
+			outputPath = args[2]
+		}
+		if len(args) > 3 {
+			deviceID = args[3]
+		}
+		r.history.Append("screenshot", outputPath, deviceID)
+		r.deviceController.Screenshot(deviceID, outputPath)
+
+	case "diagnostics":
+		var deviceID string
+		if len(args) > 2 {
+			deviceID = args[2]
+		}
+		r.history.Append("diagnostics", deviceID)
+		r.diagnosticsController.ShowAll(deviceID)
+
+	case "env":
+		r.history.Append("env")
+		r.systemController.ShowEnv()
+
+	case "config":
+		r.history.Append("config", args[2:]...)
+		if len(args) == 2 {
+			r.systemController.ShowConfig()
+		} else if len(args) >= 4 && args[2] == "set" {
+			r.systemController.SetConfig(args[3], strings.Join(args[4:], " "))
+		} else {
+			r.view.RenderError(fmt.Errorf("usage: config [show|set <key> <value>]"))
+		}
+
+	case "history":
+		r.systemController.ShowHistory()
+
+	case "firmware":
+		r.history.Append("firmware", args[2:]...)
+		if len(args) < 3 {
+			r.view.RenderError(fmt.Errorf("missing subcommand\nUsage: android-tool firmware <partitions|buildprop> <folder-path>"))
+			return
+		}
+		subcommand := args[2]
+		var folderPath string
+		if len(args) > 3 {
+			folderPath = args[3]
+		}
+		switch subcommand {
+		case "partitions":
+			r.firmwareController.ShowPartitionInfo(folderPath)
+		case "buildprop":
+			r.firmwareController.ShowBuildProp(folderPath)
+		default:
+			r.view.RenderError(fmt.Errorf("unknown firmware subcommand: %s\nAvailable: partitions, buildprop", subcommand))
+		}
 
 	case "help", "-h", "--help":
 		r.view.RenderHelp()
@@ -138,6 +216,8 @@ func (r *Router) enterInteractiveMode() {
 		"ADB Management Menu",
 		"Fastboot Management Menu (Soon)",
 		"Firmware Extractor",
+		"Device Diagnostics",
+		"System Tools",
 		"MediaTek Port Monitor (BROM) (Soon)",
 		"Exit",
 	}
@@ -150,12 +230,33 @@ func (r *Router) enterInteractiveMode() {
 		"Uninstall Package",
 		"Push File (Local -> Device)",
 		"Pull File (Device -> Local)",
+		"Screenshot",
 		"Back to Main Menu",
 	}
 
 	firmwareOptions := []string{
 		"Extract Outer Archive (.zip, .tgz, .tar.gz, .tar, .tar.md5)",
 		"Samsung Firmware Extractor (Inner)",
+		"Partition Info Report (scan extracted folder)",
+		"Build.Prop Info (device info from extracted folder)",
+		"Back to Main Menu",
+	}
+
+	diagnosticsOptions := []string{
+		"Full Diagnostics Report",
+		"Memory Info",
+		"CPU Info",
+		"Storage Info",
+		"Display Info",
+		"Network & Signal Info",
+		"Sensor Info",
+		"Back to Main Menu",
+	}
+
+	systemOptions := []string{
+		"Environment Check",
+		"Configuration",
+		"Command History",
 		"Back to Main Menu",
 	}
 
@@ -175,6 +276,12 @@ func (r *Router) enterInteractiveMode() {
 		} else if currentMenu == "firmware" {
 			title = "FIRMWARE EXTRACTOR"
 			options = firmwareOptions
+		} else if currentMenu == "diagnostics" {
+			title = "DEVICE DIAGNOSTICS"
+			options = diagnosticsOptions
+		} else if currentMenu == "system" {
+			title = "SYSTEM TOOLS"
+			options = systemOptions
 		}
 
 		r.view.RenderInteractiveMenu(title, options, activeIndex)
@@ -185,7 +292,7 @@ func (r *Router) enterInteractiveMode() {
 		}
 
 		if key == "q" {
-			if currentMenu == "adb" || currentMenu == "firmware" {
+			if currentMenu == "adb" || currentMenu == "firmware" || currentMenu == "diagnostics" || currentMenu == "system" {
 				currentMenu = "main"
 				activeIndex = 0
 				continue
@@ -205,7 +312,7 @@ func (r *Router) enterInteractiveMode() {
 			if activeIndex >= len(options) {
 				activeIndex = 0
 			}
-		case "1", "2", "3", "4", "5", "6", "7", "8":
+		case "1", "2", "3", "4", "5", "6", "7", "8", "9":
 			idx := int(key[0] - '1')
 			if idx < len(options) {
 				activeIndex = idx
@@ -216,7 +323,13 @@ func (r *Router) enterInteractiveMode() {
 					} else if activeIndex == 2 {
 						currentMenu = "firmware"
 						activeIndex = 0
+					} else if activeIndex == 3 {
+						currentMenu = "diagnostics"
+						activeIndex = 0
 					} else if activeIndex == 4 {
+						currentMenu = "system"
+						activeIndex = 0
+					} else if activeIndex == 6 {
 						r.view.SetRawMode(false)
 						fmt.Println("\nGoodbye!")
 						return
@@ -237,6 +350,16 @@ func (r *Router) enterInteractiveMode() {
 					if currentMenu == "main" {
 						activeIndex = 0
 					}
+				} else if currentMenu == "diagnostics" {
+					r.executeDiagnosticsAction(activeIndex, &currentMenu)
+					if currentMenu == "main" {
+						activeIndex = 0
+					}
+				} else if currentMenu == "system" {
+					r.executeSystemAction(activeIndex, &currentMenu)
+					if currentMenu == "main" {
+						activeIndex = 0
+					}
 				}
 			}
 		case "enter":
@@ -247,7 +370,13 @@ func (r *Router) enterInteractiveMode() {
 				} else if activeIndex == 2 {
 					currentMenu = "firmware"
 					activeIndex = 0
+				} else if activeIndex == 3 {
+					currentMenu = "diagnostics"
+					activeIndex = 0
 				} else if activeIndex == 4 {
+					currentMenu = "system"
+					activeIndex = 0
+				} else if activeIndex == 6 {
 					r.view.SetRawMode(false)
 					fmt.Println("\nGoodbye!")
 					return
@@ -268,6 +397,16 @@ func (r *Router) enterInteractiveMode() {
 				if currentMenu == "main" {
 					activeIndex = 0
 				}
+			} else if currentMenu == "diagnostics" {
+				r.executeDiagnosticsAction(activeIndex, &currentMenu)
+				if currentMenu == "main" {
+					activeIndex = 0
+				}
+			} else if currentMenu == "system" {
+				r.executeSystemAction(activeIndex, &currentMenu)
+				if currentMenu == "main" {
+					activeIndex = 0
+				}
 			}
 		}
 	}
@@ -280,20 +419,25 @@ func (r *Router) executeADBAction(index int, currentMenu *string) {
 
 	switch index {
 	case 0: // List Devices
+		r.history.Append("devices")
 		r.deviceController.Index()
 	case 1: // Device Info
 		deviceID := r.view.PromptInput("Enter Device ID (leave empty for default): ")
+		r.history.Append("info", deviceID)
 		r.deviceController.ShowDeviceInfo(deviceID)
 	case 2: // Reboot Device
 		deviceID := r.view.PromptInput("Enter Device ID (leave empty for default): ")
+		r.history.Append("reboot", deviceID)
 		r.deviceController.Reboot(deviceID)
 	case 3: // Install APK
 		apkPath := r.view.PromptInput("Enter APK Path: ")
 		deviceID := r.view.PromptInput("Enter Device ID (leave empty for default): ")
+		r.history.Append("install", apkPath, deviceID)
 		r.appController.Install(apkPath, deviceID)
 	case 4: // Uninstall Package
 		pkgName := r.view.PromptInput("Enter Package Name: ")
 		deviceID := r.view.PromptInput("Enter Device ID (leave empty for default): ")
+		r.history.Append("uninstall", pkgName, deviceID)
 		r.appController.Uninstall(pkgName, deviceID)
 	case 5: // Push File
 		fmt.Println("\033[90m💡 [Petunjuk Jalur Berkas / Path Helper]\033[0m")
@@ -305,6 +449,7 @@ func (r *Router) executeADBAction(index int, currentMenu *string) {
 		localPath := r.view.PromptInput("Masukkan Local File Path: ")
 		remotePath := r.view.PromptInput("Masukkan Remote Destination Path: ")
 		deviceID := r.view.PromptInput("Masukkan Device ID (kosongkan untuk default): ")
+		r.history.Append("push", localPath, remotePath, deviceID)
 		r.fileController.Push(localPath, remotePath, deviceID)
 	case 6: // Pull File
 		fmt.Println("\033[90m💡 [Petunjuk Jalur Berkas / Path Helper]\033[0m")
@@ -316,7 +461,87 @@ func (r *Router) executeADBAction(index int, currentMenu *string) {
 		remotePath := r.view.PromptInput("Masukkan Remote File Path: ")
 		localPath := r.view.PromptInput("Masukkan Local Destination Path: ")
 		deviceID := r.view.PromptInput("Masukkan Device ID (kosongkan untuk default): ")
+		r.history.Append("pull", remotePath, localPath, deviceID)
 		r.fileController.Pull(remotePath, localPath, deviceID)
+	case 7: // Screenshot
+		fmt.Println("\033[90m📸 [Screenshot Capture]\033[0m")
+		fmt.Println("   Akan menyimpan screenshot ke file PNG di folder saat ini.")
+		fmt.Println()
+		outputPath := r.view.PromptInput("Masukkan Output Path (kosongkan untuk default): ")
+		deviceID := r.view.PromptInput("Masukkan Device ID (kosongkan untuk default): ")
+		r.history.Append("screenshot", outputPath, deviceID)
+		r.deviceController.Screenshot(deviceID, outputPath)
+	case 8: // Back
+		*currentMenu = "main"
+		r.view.SetRawMode(true)
+		return
+	}
+
+	fmt.Printf("\nPress Enter to return to menu...")
+	var dummy string
+	fmt.Scanln(&dummy)
+	r.view.SetRawMode(true)
+}
+
+// executeSystemAction runs the selected system tools action.
+func (r *Router) executeSystemAction(index int, currentMenu *string) {
+	r.view.SetRawMode(false)
+	fmt.Println()
+
+	switch index {
+	case 0: // Environment Check
+		r.history.Append("env")
+		r.systemController.ShowEnv()
+	case 1: // Configuration
+		r.systemController.ShowConfig()
+	case 2: // Command History
+		r.systemController.ShowHistory()
+	case 3: // Back
+		*currentMenu = "main"
+		r.view.SetRawMode(true)
+		return
+	}
+
+	fmt.Printf("\nPress Enter to return to menu...")
+	var dummy string
+	fmt.Scanln(&dummy)
+	r.view.SetRawMode(true)
+}
+
+// executeDiagnosticsAction runs the selected diagnostics action.
+func (r *Router) executeDiagnosticsAction(index int, currentMenu *string) {
+	r.view.SetRawMode(false)
+	fmt.Println()
+
+	switch index {
+	case 0: // Full Diagnostics Report
+		deviceID := r.view.PromptInput("Enter Device ID (leave empty for default): ")
+		r.history.Append("diagnostics", deviceID)
+		r.diagnosticsController.ShowAll(deviceID)
+	case 1: // Memory Info
+		deviceID := r.view.PromptInput("Enter Device ID (leave empty for default): ")
+		r.history.Append("diagnostics memory", deviceID)
+		r.diagnosticsController.ShowMemory(deviceID)
+	case 2: // CPU Info
+		deviceID := r.view.PromptInput("Enter Device ID (leave empty for default): ")
+		r.history.Append("diagnostics cpu", deviceID)
+		r.diagnosticsController.ShowCPU(deviceID)
+	case 3: // Storage Info
+		deviceID := r.view.PromptInput("Enter Device ID (leave empty for default): ")
+		r.history.Append("diagnostics storage", deviceID)
+		r.diagnosticsController.ShowStorage(deviceID)
+	case 4: // Display Info
+		deviceID := r.view.PromptInput("Enter Device ID (leave empty for default): ")
+		r.history.Append("diagnostics display", deviceID)
+		r.diagnosticsController.ShowDisplay(deviceID)
+	case 5: // Network & Signal Info
+		deviceID := r.view.PromptInput("Enter Device ID (leave empty for default): ")
+		r.history.Append("diagnostics network", deviceID)
+		r.diagnosticsController.ShowNetwork(deviceID)
+	case 6: // Sensor Info
+		deviceID := r.view.PromptInput("Enter Device ID (leave empty for default): ")
+		r.history.Append("diagnostics sensor", deviceID)
+		r.diagnosticsController.ShowSensors(deviceID)
 	case 7: // Back
 		*currentMenu = "main"
 		r.view.SetRawMode(true)
@@ -341,7 +566,13 @@ func (r *Router) executeFirmwareAction(index int, currentMenu *string) {
 		r.firmwareController.ExtractOuterArchive(filePath, outputDir)
 	case 1: // Samsung Inner Extractor
 		r.firmwareController.ExtractSamsungInner()
-	case 2: // Back
+	case 2: // Partition Info Report
+		folderPath := r.view.PromptInput("Masukkan Path Folder hasil extract firmware: ")
+		r.firmwareController.ShowPartitionInfo(folderPath)
+	case 3: // Build.Prop Info
+		folderPath := r.view.PromptInput("Masukkan Path Folder hasil extract firmware: ")
+		r.firmwareController.ShowBuildProp(folderPath)
+	case 4: // Back
 		*currentMenu = "main"
 		r.view.SetRawMode(true)
 		return

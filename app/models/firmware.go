@@ -291,6 +291,98 @@ func (fe *FirmwareExtractor) FindSamsungComponentsInZip(zipPath string) (map[str
 	return components, nil
 }
 
+// PartitionInfo holds metadata about a single partition image file.
+type PartitionInfo struct {
+	Name      string
+	Size      int64
+	SizeHuman string
+	FileType  string // "img" or "bin"
+}
+
+// ScanPartitions walks a directory and returns metadata of all .img and .bin files.
+func (fe *FirmwareExtractor) ScanPartitions(dir string) ([]PartitionInfo, error) {
+	var partitions []PartitionInfo
+
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info.IsDir() {
+			return nil
+		}
+		name := strings.ToLower(info.Name())
+		if !strings.HasSuffix(name, ".img") && !strings.HasSuffix(name, ".bin") {
+			return nil
+		}
+
+		var sizeHuman string
+		switch {
+		case info.Size() >= 1<<30:
+			sizeHuman = fmt.Sprintf("%.2f GB", float64(info.Size())/(1<<30))
+		case info.Size() >= 1<<20:
+			sizeHuman = fmt.Sprintf("%.2f MB", float64(info.Size())/(1<<20))
+		case info.Size() >= 1<<10:
+			sizeHuman = fmt.Sprintf("%.2f KB", float64(info.Size())/(1<<10))
+		default:
+			sizeHuman = fmt.Sprintf("%d B", info.Size())
+		}
+
+		ext := strings.TrimPrefix(filepath.Ext(name), ".")
+		partitions = append(partitions, PartitionInfo{
+			Name:      info.Name(),
+			Size:      info.Size(),
+			SizeHuman: sizeHuman,
+			FileType:  ext,
+		})
+		return nil
+	})
+
+	return partitions, err
+}
+
+// FindBuildProp recursively searches for a build.prop file in the given directory.
+func (fe *FirmwareExtractor) FindBuildProp(dir string) (string, error) {
+	var found string
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info.IsDir() {
+			return nil
+		}
+		if strings.ToLower(info.Name()) == "build.prop" {
+			found = path
+			return io.EOF // stop walking
+		}
+		return nil
+	})
+	if err == io.EOF {
+		err = nil
+	}
+	return found, err
+}
+
+// ParseBuildProp reads a build.prop file and returns key-value pairs.
+func (fe *FirmwareExtractor) ParseBuildProp(path string) (map[string]string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	props := make(map[string]string)
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) == 2 {
+			props[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
+		}
+	}
+	return props, nil
+}
+
 // ExtractSpecificFilesFromZip extracts only selected files from the ZIP archive.
 func (fe *FirmwareExtractor) ExtractSpecificFilesFromZip(zipPath string, filesToExtract map[string]string, dest string, onProgress func(string)) error {
 	r, err := zip.OpenReader(zipPath)
